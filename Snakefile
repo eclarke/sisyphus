@@ -71,6 +71,8 @@ def filter_fasta(infile, length, label):
         
 Samples = build_sample_list(WD, config['filename_fmt'], {})
 
+localrules: _soap_config, _filter_len, _combine_individual_assemblers, _final_filter
+
 rule all:
     input:
         expand('final_contigs/{sample}/{sample}-ensemble-contigs.fa', sample=Samples.keys()),

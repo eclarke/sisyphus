@@ -12,12 +12,14 @@ Install the dependencies (bioconda is probably your best bet):
 
 - vsearch
 - pyfaidx
+- pear
 - idba_ud
 - soapdenovo
 - abyss
 - cap3
+- rust-bio-tools
 
-If you're using the binaries distributed with Deng's EnsembleAssembler, all you need is IDBA_UD, vsearch, and pyfaidx.
+If you're using the binaries distributed with Deng's EnsembleAssembler, you can skip soapdenovo, cap3 and abyss.
 
 Download the included Snakefile and set up the configuration, notably:
 - `fastqs`: should point to the folder containing all your reads (paired). Use absolute paths.

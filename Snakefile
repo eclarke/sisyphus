@@ -148,8 +148,8 @@ rule _abyss:
             starttime=starttime)
     shell:
         """
-        cd {params.out_fp} && {config[bin]}/abyss-pe name={wildcards.sample} \
-        k={config[abyss_kmer]} in='{input.r1} {input.r2}' np=1 j={config[threads]} >& {log}
+        abyss-pe -C {params.out_fp} np=  name={wildcards.sample} \
+        k={config[abyss_kmer]} in='{input.r1} {input.r2}' j={config[threads]} # >& {log}
         """
 
 rule _abyss_partition:

@@ -6,6 +6,7 @@ from pyfaidx import Fasta
 
 default_config = {
     'fastqs': '/home/ecl/dev/ensemble/fastqs',
+    'filename_fmt': '{sample}_{rp}.fastq',
     'bin': '/home/ecl/dev/ensemble/bin',
     'insert_size': 260,
     'metavelvet_kmer': 31,
@@ -68,11 +69,12 @@ def filter_fasta(infile, length, label):
             n += 1
             yield outstr
         
-Samples = build_sample_list(WD, "{sample}_{rp}.fastq", {})
+Samples = build_sample_list(WD, config['filename_fmt'], {})
 
 rule all:
     input:
-        expand('final_contigs/{sample}-contigs.fa', sample=Samples.keys())
+        expand('final_contigs/{sample}/{sample}-ensemble-contigs.fa', sample=Samples.keys()),
+        expand('final_contigs/{sample}/.save', sample=Samples.keys())
 
 rule _metavelvet:
     output:
@@ -225,7 +227,8 @@ rule _pair:
         expand('logs/pair/{{sample}}-{starttime}', starttime=starttime)
     shell:
         """
-        pear -f {input.r1} -r {input.r2} -o {params.out_fp} >& {log} &&\
+        pear -f {input.r1} -r {input.r2} -o {params.out_fp} -j {config[threads]}\
+        >& {log} && \
         fq2fa paired/{wildcards.sample}.assembled.fastq {output[fa]}
         """
         
@@ -271,13 +274,38 @@ rule _final_filter:
     input:
         'combined/{sample}-combined-cap.fa.300filtered'
     output:
-        'final_contigs/{sample}-contigs.fa'
+        'final_contigs/{sample}/{sample}-ensemble-contigs.fa'
     shell:
-        "cp {input} {output}"    
-        
+        "cp {input} {output}"
+
+
+# CLEANUP ------------------------------------------------------------
+
+rule save_intermediates:
+    input:
+        A='abyss/{sample}/{sample}-unitigs.fa',
+        S='soapdenovo/{sample}/{sample}.contig.fa',
+        a='abyss_partition/{sample}/unitig-combined.fa',
+        I='idba_ud/{sample}/contig.fa'
+    output:
+        A='final_contigs/{sample}/{sample}-abyss-contigs.fa',
+        S='final_contigs/{sample}/{sample}-soapdenovo-contigs.fa',
+        a='final_contigs/{sample}/{sample}-abyss_partitioned-contigs.fa',
+        I='final_contigs/{sample}/{sample}-idba_ud-contigs.fa',
+        sentinel='final_contigs/{sample}/.save'
+    run:
+        shell("""
+        cp {input.A} {output.A} &&\
+        cp {input.S} {output.S} &&\
+        cp {input.a} {output.a} &&\
+        cp {input.I} {output.I} &&\
+        touch {output.sentinel}
+        """)        
+
 rule clean:
     shell:
         """
+        cp 
         rm -rf abyss abyss_partition chunks combined idba_ud metavelvet soapdenovo paired &&\
         echo "Cleanup finished." &&
         if [ -e final_contigs ]; then
@@ -286,6 +314,9 @@ rule clean:
             echo "Final contigs moved to final_contigs-$timestamp"
         fi
         """
+
+
+        
 rule clean_logs:
     shell:
         "rm -rf logs && echo 'Logs deleted'"

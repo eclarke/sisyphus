@@ -1,0 +1,54 @@
+default_config = {
+    'blastdb': '/home/common/blastdbs',
+    'brocc_fp': '/home/ecl/dev/brocc',
+    'threads': 16
+}
+
+if config:
+    for key in default_config.keys():
+        if key not in config:
+            config[key] = default_config[key]
+    update_config(default_config, config)
+else:
+    config = default_config
+
+rule _blastn_scomnames:
+    input:
+        '{sample}.fa'
+    output:
+        '{sample}.scomnames.blastout'
+    shell:
+        """
+        BLASTDB={config[blastdb]} blastn -query {input} \
+        -outfmt '7 std staxids scomnames sskingdom' \
+        -db nt -num_threads {config[threads]} -max_target_seqs 1 -evalue 1e5 \
+        -out {output}
+        """
+
+rule _blastn_brocc:
+    input:
+        '{sample}.fa'
+    output:
+        '{sample}.brocc.blastout'
+    shell:
+        """
+        BLASTDB={config[blastdb]} blastn -query {input} \
+        -outfmt 7 \
+        -db nt -num_threads {config[threads]} -max_target_seqs 100 -evalue 1e5 \
+        -out {output}
+        """
+
+rule _brocc:
+    """Requires brocc to be installed via pip2 (for python 2.7)"""
+    input:
+        seqs = '{sample}.fa',
+        blast ='{sample}.brocc.blastout'
+    output:
+        '{sample}-brocc/Standard_Taxonomy.txt'
+    params:
+        out_fp = '{sample}-brocc'
+    shell:
+        """
+        python2 {config[brocc_fp]}/scripts/brocc.py \
+        -i {input.seqs} -b {input.blast} -o {params.out_fp} --min_species_id 85 --min_genus_id 80
+        """

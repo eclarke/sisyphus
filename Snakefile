@@ -149,7 +149,7 @@ rule _abyss:
     shell:
         """
         cd {params.out_fp} && {config[bin]}/abyss-pe name={wildcards.sample} \
-        k={config[abyss_kmer]} in='{input.r1} {input.r2}' >& {log}
+        k={config[abyss_kmer]} in='{input.r1} {input.r2}' np=1 j={config[threads]} >& {log}
         """
 
 rule _abyss_partition:

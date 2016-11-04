@@ -8,6 +8,7 @@ default_config = {
     'fastqs': '/home/ecl/dev/ensemble/fastqs',
     'filename_fmt': '{sample}_{rp}.fastq',
     'bin': '/home/ecl/dev/ensemble/bin',
+    'email': 'ecl@mail.med.upenn.edu',
     'insert_size': 260,
     'metavelvet_kmer': 31,
     'soap_kmer': 31,
@@ -67,11 +68,27 @@ def filter_fasta(infile, length, label):
             outstr = ">Contig_{n}{label}\n{seq}\n".format(
                 n=n, label=label, seq=seq)
             n += 1
-            yield outstr
+            yield outstrp
+
+def filter_len(fasta, length):
+    filename = os.path.basename(fasta)
+    shell("""
+    vsearch --sortbylength {fasta} \
+    --relabel {filename} --minseqlength {length} \
+    --output {fasta}.{length}f >& /dev/null
+    """)
         
 Samples = build_sample_list(WD, config['filename_fmt'], {})
 
-localrules: _soap_config, _filter_len, _combine_individual_assemblers, _final_filter
+localrules: _soap_config, _combine_individual_assemblers, _final_filter
+
+onsuccess:
+    print("Workflow finished without errors.")
+    shell("mail -s 'Sisyphus finished successfully' {config[email]} < {log}")
+
+onerror:
+    print("Workflow finished without errors.")
+    shell("mail -s 'Error running Sisyphus!' {config[email]} < {log}")
 
 rule all:
     input:
@@ -234,30 +251,20 @@ rule _pair:
         fq2fa paired/{wildcards.sample}.assembled.fastq {output[fa]}
         """
         
-rule _filter_len:
-    input:
-        '{filename}.fa'
-    output:
-        '{filename}.fa.{len}filtered'
-    run:
-        shell(
-            """
-            vsearch --sortbylength {input} \
-            --relabel {wildcards.filename} --minseqlength {wildcards.len} \
-            --output {output} >& /dev/null
-            """)
-        
 rule _combine_individual_assemblers:
     input:
-        A='abyss/{sample}/{sample}-unitigs.fa.150filtered',
-        S='soapdenovo/{sample}/{sample}.contig.fa.150filtered',
-        a='abyss_partition/{sample}/unitig-combined.fa.150filtered',
-        I='idba_ud/{sample}/contig.fa.150filtered'
-#        V='metavelvet/{sample}/meta-velvetg.contigs.fa.150filtered'
+        A='abyss/{sample}/{sample}-unitigs.fa',
+        S='soapdenovo/{sample}/{sample}.contig.fa',
+        a='abyss_partition/{sample}/unitig-combined.fa',
+        I='idba_ud/{sample}/contig.fa'
+#        V='metavelvet/{sample}/meta-velvetg.contigs.fa'
     output:
         'combined/{sample}-combined.fa'
-    shell:
-        """cat {input.A} {input.S} {input.a} {input.I} > {output}"""
+    run:
+        [filter_len(input[i], 150) for i in ['A','S','a','I']]
+        shell(
+            """cat {input.A}.150f {input.S}.150f {input.a}.150f {input.I}.150f > {output}"""
+        )
 
 rule _CAP3:
     input:
@@ -274,11 +281,12 @@ rule _CAP3:
 
 rule _final_filter:
     input:
-        'combined/{sample}-combined-cap.fa.300filtered'
+        'combined/{sample}-combined-cap.fa'
     output:
         'final_contigs/{sample}/{sample}-ensemble-contigs.fa'
-    shell:
-        "cp {input} {output}"
+    run:
+        filter_len(input[0], 300)
+        shell("cp {input}.300f {output}")
 
 
 # CLEANUP ------------------------------------------------------------

@@ -208,7 +208,7 @@ rule _abyss_partition:
             shell(
                 """
                 cd {params.out_fp} && {config[bin]}/abyss-pe np= j={config[threads]} name={part_name} \
-                k={config[abyss_kmer]} in='{r1} {r2}' >>& {log}
+                k={config[abyss_kmer]} in='{r1} {r2}' >& {log}.{part_name}
                 """)
         part_files = " ".join(params['out_fp']+'/{p}-unitigs.fa'.format(p=p) for p in part_names)
         shell("cat {part_files} > {output[0]}")
